@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/PuerkitoBio/goquery"
 )
@@ -17,6 +18,7 @@ type Route struct {
 }
 
 type Sailing struct {
+	DepartureDate string `json:"date"`
 	DepartureTime string `json:"time"`
 	ArrivalTime   string `json:"arrivalTime"`
 	IsCancelled   bool   `json:"isCancelled"`
@@ -116,6 +118,10 @@ func ScrapeCapacityRoute(document *goquery.Document) Route {
 		Sailings:        []Sailing{},
 	}
 
+	loc, _ := time.LoadLocation("America/Vancouver")
+	//set timezone,
+	now := time.Now().In(loc)
+
 	// Get table of times and capacities
 	document.Find(".mobile-friendly-row").Each(func(index int, sailingData *goquery.Selection) {
 
@@ -129,6 +135,9 @@ func ScrapeCapacityRoute(document *goquery.Document) Route {
 			isTomorrow := false
 			if strings.Contains(timeAndBoatName, "Tomorrow") {
 				isTomorrow = true
+				sailing.DepartureDate = now.AddDate(0, 0, 1).Format("2006-01-02")
+			} else if strings.Contains(timeAndBoatName, now.AddDate(0, 0, 2).Format("Jan 2, 2006")) {
+				sailing.DepartureDate = now.AddDate(0, 0, 2).Format("2006-01-02")
 			}
 
 			for i := 0; i < len(timeAndBoatNameArray); i++ {
@@ -246,8 +255,14 @@ func ScrapeNonCapacityRoute(document *goquery.Document) Route {
 		Sailings:        []Sailing{},
 	}
 
+	loc, _ := time.LoadLocation("America/Vancouver")
+	//set timezone,
+	now := time.Now().In(loc)
+
 	document.Find(".table-seasonal-schedule").First().Find("tbody").First().Find(".schedule-table-row").Each(func(index int, sailingData *goquery.Selection) {
 		sailing := Sailing{}
+
+		sailing.DepartureDate = now.Format("2006-01-02")
 
 		sailingData.Find("td").Each(func(index int, sailingData *goquery.Selection) {
 			if index == 1 {
