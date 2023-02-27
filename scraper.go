@@ -132,11 +132,13 @@ func ScrapeCapacityRoute(document *goquery.Document) Route {
 			timeAndBoatName := sailingData.Find(".mobile-paragraph").First().Text()
 			timeAndBoatNameArray := strings.Split(timeAndBoatName, "\n")
 
-			isTomorrow := false
+			isFutureDate := false
+
 			if strings.Contains(timeAndBoatName, "Tomorrow") {
-				isTomorrow = true
+				isFutureDate = true
 				sailing.DepartureDate = now.AddDate(0, 0, 1).Format("2006-01-02")
 			} else if strings.Contains(timeAndBoatName, now.AddDate(0, 0, 2).Format("Jan 02, 2006")) {
+				isFutureDate = true
 				sailing.DepartureDate = now.AddDate(0, 0, 2).Format("2006-01-02")
 			} else {
 				sailing.DepartureDate = now.Format("2006-01-02")
@@ -154,7 +156,7 @@ func ScrapeCapacityRoute(document *goquery.Document) Route {
 			}
 
 			// FILL
-			if isTomorrow {
+			if isFutureDate {
 				sailingData.Find(".cc-message-updates").Each(func(index int, tomorrowFillData *goquery.Selection) {
 					fill := strings.TrimSpace(tomorrowFillData.Text())
 					if index == 0 {
