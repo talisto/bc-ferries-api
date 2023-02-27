@@ -136,7 +136,7 @@ func ScrapeCapacityRoute(document *goquery.Document) Route {
 			if strings.Contains(timeAndBoatName, "Tomorrow") {
 				isTomorrow = true
 				sailing.DepartureDate = now.AddDate(0, 0, 1).Format("2006-01-02")
-			} else if strings.Contains(timeAndBoatName, now.AddDate(0, 0, 2).Format("Jan 2, 2006")) {
+			} else if strings.Contains(timeAndBoatName, now.AddDate(0, 0, 2).Format("Jan 02, 2006")) {
 				sailing.DepartureDate = now.AddDate(0, 0, 2).Format("2006-01-02")
 			}
 
