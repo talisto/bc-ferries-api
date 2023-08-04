@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -148,8 +149,11 @@ func ScrapeCapacityRoute(document *goquery.Document) Route {
 				item := strings.TrimSpace(timeAndBoatNameArray[i])
 				item = strings.ReplaceAll(item, "\n", "")
 
-				if strings.Contains(item, "AM") || strings.Contains(item, "PM") {
-					sailing.DepartureTime = item
+				re := regexp.MustCompile(`(1?[0-9]:[0-5][0-9] (am|pm|AM|PM))`)
+				time := re.FindString(item)
+
+				if time != "" {
+					sailing.DepartureTime = time
 				} else if !strings.Contains(item, "Tomorrow") && len(item) > 5 {
 					sailing.VesselName = item
 				}
