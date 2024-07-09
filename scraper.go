@@ -24,10 +24,7 @@ type Sailing struct {
 	ArrivalTime   string `json:"arrivalTime"`
 	IsCancelled   bool   `json:"isCancelled"`
 	Fill          int    `json:"fill"`
-	CarFill       int    `json:"carFill"`
-	OversizeFill  int    `json:"oversizeFill"`
 	VesselName    string `json:"vesselName"`
-	VesselStatus  string `json:"vesselStatus"`
 }
 
 func MakeCurrentConditionsLink(departure, destination string) string {
@@ -59,8 +56,8 @@ func ScrapeRoutes(localMode bool) map[string]map[string]Route {
 		for j := 0; j < len(destinationTerminals[i]); j++ {
 			var document *goquery.Document
 
-			if localMode == true {
-				file, err := os.OpenFile("./sample-site.html", os.O_RDWR, 0644)
+			if localMode {
+				file, err := os.OpenFile("./sample/sample-site.html", os.O_RDWR, 0644)
 				if err != nil {
 					log.Fatal("Local file read failed")
 				}
@@ -82,7 +79,7 @@ func ScrapeRoutes(localMode bool) map[string]map[string]Route {
 
 				// Make HTTP GET request
 				client := &http.Client{}
-				req, err := http.NewRequest("GET", link, nil)
+				req, _ := http.NewRequest("GET", link, nil)
 				req.Header.Add("User-Agent", "Mozilla")
 				response, err := client.Do(req)
 
@@ -133,13 +130,9 @@ func ScrapeCapacityRoute(document *goquery.Document) Route {
 			timeAndBoatName := sailingData.Find(".mobile-paragraph").First().Text()
 			timeAndBoatNameArray := strings.Split(timeAndBoatName, "\n")
 
-			isFutureDate := false
-
 			if strings.Contains(timeAndBoatName, "Tomorrow") {
-				isFutureDate = true
 				sailing.DepartureDate = now.AddDate(0, 0, 1).Format("2006-01-02")
 			} else if strings.Contains(timeAndBoatName, now.AddDate(0, 0, 2).Format("Jan 02, 2006")) {
-				isFutureDate = true
 				sailing.DepartureDate = now.AddDate(0, 0, 2).Format("2006-01-02")
 			} else {
 				sailing.DepartureDate = now.Format("2006-01-02")
@@ -154,100 +147,25 @@ func ScrapeCapacityRoute(document *goquery.Document) Route {
 
 				if time != "" {
 					sailing.DepartureTime = time
-				} else if !strings.Contains(item, "Tomorrow") && len(item) > 5 {
-					sailing.VesselName = item
 				}
 			}
+
+			sailing.VesselName = strings.TrimSpace(sailingData.Find(".sailing-ferry-name").First().Text())
 
 			// FILL
-			if isFutureDate {
-				sailingData.Find(".cc-message-updates").Each(func(index int, tomorrowFillData *goquery.Selection) {
-					fill := strings.TrimSpace(tomorrowFillData.Text())
-					if index == 0 {
-						if fill == "FULL" || fill == "Full" {
-							sailing.Fill = 100
-							sailing.IsCancelled = false
-						} else if strings.Contains(fill, "Cancelled") {
-							sailing.Fill = 0
-							sailing.IsCancelled = true
-						} else {
-							fill, err := strconv.Atoi(strings.Split(fill, "%")[0])
-							if err == nil {
-								sailing.Fill = 100 - fill
-							}
-
-							sailing.IsCancelled = false
-						}
-					} else if index == 1 {
-						tomorrowFillData.Find(".pcnt").Each(func(index int, tomorrowDetailedFillData *goquery.Selection) {
-							if index == 0 {
-								fill := strings.TrimSpace(tomorrowFillData.Text())
-
-								if fill == "FULL" || fill == "Full" {
-									sailing.CarFill = 100
-								} else {
-									fill, err := strconv.Atoi(strings.Split(fill, "%")[0])
-									if err == nil {
-										sailing.CarFill = 100 - fill
-									}
-								}
-							} else if index == 1 {
-								fill := strings.TrimSpace(tomorrowFillData.Text())
-
-								if fill == "FULL" || fill == "Full" {
-									sailing.OversizeFill = 100
-								} else {
-									fill, err := strconv.Atoi(strings.Split(fill, "%")[0])
-									if err == nil {
-										sailing.OversizeFill = 100 - fill
-									}
-								}
-							}
-						})
-					}
-				})
+			fill := strings.TrimSpace(sailingData.Find(".cc-vessel-percent-full").First().Text())
+			if fill == "FULL" || fill == "Full" {
+				sailing.Fill = 100
+				sailing.IsCancelled = false
+			} else if strings.Contains(fill, "Cancelled") {
+				sailing.Fill = 0
+				sailing.IsCancelled = true
 			} else {
-				fill := strings.TrimSpace(sailingData.Find(".cc-percentage").First().Text())
-				if fill == "FULL" || fill == "Full" {
-					sailing.Fill = 100
-					sailing.IsCancelled = false
-				} else if strings.Contains(fill, "Cancelled") {
-					sailing.Fill = 0
-					sailing.IsCancelled = true
-				} else {
-					fill, err := strconv.Atoi(strings.Split(fill, "%")[0])
-					if err == nil {
-						sailing.Fill = 100 - fill
-					}
-
-					sailing.IsCancelled = false
+				fill, err := strconv.Atoi(strings.Split(fill, "%")[0])
+				if err == nil {
+					sailing.Fill = 100 - fill
 				}
-			}
-
-			// FILL BREAKDOWN
-			sailingData.Find(".pcnt").Each(func(detailedFillIndex int, detailedFill *goquery.Selection) {
-				fill := strings.TrimSpace(detailedFill.Text())
-				fillResult := 0
-
-				if fill == "FULL" || fill == "Full" {
-					fillResult = 100
-				} else {
-					fill, err := strconv.Atoi(strings.Split(fill, "%")[0])
-					if err == nil {
-						fillResult = 100 - fill
-					}
-				}
-
-				if detailedFillIndex == 0 {
-					sailing.CarFill = fillResult
-				} else if detailedFillIndex == 1 {
-					sailing.OversizeFill = fillResult
-				}
-			})
-
-			if sailing.CarFill == 0 && sailing.OversizeFill == 0 && sailing.Fill == 100 {
-				sailing.CarFill = 100
-				sailing.OversizeFill = 100
+				sailing.IsCancelled = false
 			}
 
 			route.Sailings = append(route.Sailings, sailing)
@@ -267,16 +185,18 @@ func ScrapeNonCapacityRoute(document *goquery.Document) Route {
 	//set timezone,
 	now := time.Now().In(loc)
 
-	document.Find(".table-seasonal-schedule").First().Find("tbody").First().Find(".schedule-table-row").Each(func(index int, sailingData *goquery.Selection) {
+	re := regexp.MustCompile(`(1?[0-9]:[0-5][0-9] (am|pm|AM|PM))`)
+
+	document.Find("#seasonalSchedulesForm .table-seasonal-schedule tbody").First().Find(".schedule-table-row").Each(func(index int, sailingData *goquery.Selection) {
 		sailing := Sailing{}
 
 		sailing.DepartureDate = now.Format("2006-01-02")
 
 		sailingData.Find("td").Each(func(index int, sailingData *goquery.Selection) {
 			if index == 1 {
-				sailing.DepartureTime = strings.TrimSpace(sailingData.Text())
+				sailing.DepartureTime = re.FindString(strings.TrimSpace(sailingData.Text()))
 			} else if index == 2 {
-				sailing.ArrivalTime = strings.TrimSpace(sailingData.Text())
+				sailing.ArrivalTime = re.FindString(strings.TrimSpace(sailingData.Text()))
 			}
 		})
 
