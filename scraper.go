@@ -153,7 +153,7 @@ func ScrapeCapacityRoute(document *goquery.Document) Route {
 			sailing.VesselName = strings.TrimSpace(sailingData.Find(".sailing-ferry-name").First().Text())
 
 			// FILL
-			fill := strings.TrimSpace(sailingData.Find(".cc-vessel-percent-full").First().Text())
+			fill := strings.TrimSpace(sailingData.Find(".cc-message-updates span").First().Text())
 			if fill == "FULL" || fill == "Full" {
 				sailing.Fill = 100
 				sailing.IsCancelled = false
