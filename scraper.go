@@ -4,6 +4,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/http/cookiejar"
 	"os"
 	"regexp"
 	"strconv"
@@ -78,9 +79,12 @@ func ScrapeRoutes(localMode bool) map[string]map[string]Route {
 				}
 
 				// Make HTTP GET request
-				client := &http.Client{}
+				jar, _ := cookiejar.New(nil)
+				client := &http.Client{
+					Jar: jar,
+				}
 				req, _ := http.NewRequest("GET", link, nil)
-				req.Header.Add("User-Agent", "Mozilla")
+				req.Header.Add("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36")
 				response, err := client.Do(req)
 
 				if err != nil {
