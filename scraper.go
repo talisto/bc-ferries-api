@@ -20,12 +20,24 @@ type Route struct {
 }
 
 type Sailing struct {
-	DepartureDate string `json:"date"`
-	DepartureTime string `json:"time"`
-	ArrivalTime   string `json:"arrivalTime"`
-	IsCancelled   bool   `json:"isCancelled"`
-	Fill          int    `json:"fill"`
-	VesselName    string `json:"vesselName"`
+	DepartureDate        string   `json:"date"`
+	DepartureTime        string   `json:"time"`
+	ArrivalTime          string   `json:"arrivalTime"`
+	IsCancelled          bool     `json:"isCancelled"`
+	Fill                 int      `json:"fill"`
+	VesselName           string   `json:"vesselName"`
+	DestinationTerminals []string `json:"destinationTerminals,omitempty"`
+}
+
+var southernGulfIslandTerminals = []struct {
+	name string
+	code string
+}{
+	{name: "Salt Spring Island (Long Harbour)", code: "PLH"},
+	{name: "Pender Island (Otter Bay)", code: "POB"},
+	{name: "Galiano Island (Sturdies Bay)", code: "PSB"},
+	{name: "Saturna Island (Lyall Harbour)", code: "PST"},
+	{name: "Mayne Island (Village Bay)", code: "PVB"},
 }
 
 func MakeCurrentConditionsLink(departure, destination string) string {
@@ -104,7 +116,7 @@ func ScrapeRoutes(localMode bool) map[string]map[string]Route {
 
 				schedule[departureTerminals[i]][destinationTerminals[i][j]] = route
 			} else {
-				route := ScrapeCapacityRoute(document)
+				route := ScrapeCapacityRoute(document, destinationTerminals[i][j])
 
 				schedule[departureTerminals[i]][destinationTerminals[i][j]] = route
 			}
@@ -114,7 +126,7 @@ func ScrapeRoutes(localMode bool) map[string]map[string]Route {
 	return schedule
 }
 
-func ScrapeCapacityRoute(document *goquery.Document) Route {
+func ScrapeCapacityRoute(document *goquery.Document, destination string) Route {
 	route := Route{
 		SailingDuration: "",
 		Sailings:        []Sailing{},
@@ -130,6 +142,7 @@ func ScrapeCapacityRoute(document *goquery.Document) Route {
 		sailing := Sailing{}
 
 		if ContainsSailingData(sailingData.Text()) {
+			content := sailingData.Text()
 			// TIME AND VESSEL NAME
 			timeAndBoatName := sailingData.Find(".mobile-paragraph").First().Text()
 			timeAndBoatNameArray := strings.Split(timeAndBoatName, "\n")
@@ -155,6 +168,9 @@ func ScrapeCapacityRoute(document *goquery.Document) Route {
 			}
 
 			sailing.VesselName = strings.TrimSpace(sailingData.Find(".sailing-ferry-name").First().Text())
+			if destination == "SGI" {
+				sailing.DestinationTerminals = SouthernGulfIslandTerminalCodes(content)
+			}
 
 			// FILL
 			fill := strings.TrimSpace(sailingData.Find(".cc-message-updates span").First().Text())
@@ -177,6 +193,18 @@ func ScrapeCapacityRoute(document *goquery.Document) Route {
 	})
 
 	return route
+}
+
+func SouthernGulfIslandTerminalCodes(content string) []string {
+	codes := []string{}
+
+	for _, terminal := range southernGulfIslandTerminals {
+		if strings.Contains(content, terminal.name) {
+			codes = append(codes, terminal.code)
+		}
+	}
+
+	return codes
 }
 
 func ScrapeNonCapacityRoute(document *goquery.Document) Route {
